@@ -6,6 +6,7 @@ pydantic-settings
 
 sqlalchemy
 alembic
+psycopg2-binary
 
 opencv-python
 numpy
@@ -23,3 +24,7 @@ qrcode[pil]
 python-dotenv
 httpx
 requests
+
+langchain
+langchain-openai
+langchain-google-genai
