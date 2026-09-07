@@ -1,0 +1,68 @@
+[
+  {
+    "rule_id": "LM-6-MFG",
+    "source": "Rule 6",
+    "description": "Manufacturer, packer or importer declaration",
+    "applies_when": {
+      "package_type": ["retail"]
+    },
+    "validation_type": "FIELD_REQUIRED",
+    "field": "manufacturer",
+    "severity": "MANDATORY"
+  },
+  {
+    "rule_id": "LM-6-NAME",
+    "source": "Rule 6",
+    "description": "Generic or common name of the commodity",
+    "applies_when": {
+      "package_type": ["retail"]
+    },
+    "validation_type": "FIELD_REQUIRED",
+    "field": "product_name",
+    "severity": "MANDATORY"
+  },
+  {
+    "rule_id": "LM-6-NQ",
+    "source": "Rule 6",
+    "description": "Net quantity declaration",
+    "applies_when": {
+      "package_type": ["retail"]
+    },
+    "validation_type": "NET_QUANTITY",
+    "field": "net_quantity",
+    "severity": "MANDATORY"
+  },
+  {
+    "rule_id": "LM-6-MRP",
+    "source": "Rule 6",
+    "description": "Retail sale price declaration",
+    "applies_when": {
+      "package_type": ["retail"]
+    },
+    "validation_type": "FIELD_REQUIRED",
+    "field": "mrp",
+    "severity": "MANDATORY"
+  },
+  {
+    "rule_id": "LM-9",
+    "source": "Rule 9",
+    "description": "Manner of declarations",
+    "applies_when": {
+      "package_type": ["retail"]
+    },
+    "validation_type": "DECLARATION_PRESENTATION",
+    "field": null,
+    "severity": "MANDATORY"
+  },
+  {
+    "rule_id": "LM-24",
+    "source": "Rule 24",
+    "description": "Declarations on wholesale packages",
+    "applies_when": {
+      "package_type": ["wholesale"]
+    },
+    "validation_type": "WHOLESALE_DECLARATIONS",
+    "field": null,
+    "severity": "MANDATORY"
+  }
+]

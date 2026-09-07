@@ -1,0 +1,11 @@
+openai
+python-dotenv
+pydantic
+opencv-python
+ultralytics
+numpy
+paddleocr
+paddlepaddle
+langchain-google-genai
+langchain
+langchain-core

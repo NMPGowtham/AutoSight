@@ -31,7 +31,6 @@ media/
 *.png
 *.webp
 
-models/
 weights/
 *.pt
 *.pth
