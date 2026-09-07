@@ -1,0 +1,8 @@
+openai
+python-dotenv
+pydantic
+opencv-python
+ultralytics
+numpy
+paddleocr
+paddlepaddle
