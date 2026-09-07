@@ -6,3 +6,6 @@ ultralytics
 numpy
 paddleocr
 paddlepaddle
+langchain-google-genai
+langchain
+langchain-core

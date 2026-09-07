@@ -1,19 +1,27 @@
 import base64
 import os
+from typing import Literal, Optional
 
 import cv2
 from dotenv import load_dotenv
-from openai import OpenAI
 from pydantic import BaseModel
-from typing import Literal, Optional
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage, SystemMessage
+
 
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
 
-MODEL = os.getenv("VALIDATION_MODEL", "gpt-4o")
+# -----------------------------
+# Gemini model
+# -----------------------------
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-3.6-flash",
+    temperature=0,
+    google_api_key=os.getenv("GEMINI_API_KEY")
+)
 
 
 # -----------------------------
@@ -24,12 +32,21 @@ class ValidationResult(BaseModel):
     field: str
     status: Literal["PASS", "FAIL", "REVIEW"]
     reason: str
-    bbox: Optional[list[int]]
+    bbox: Optional[list[int]] = None
 
 
 class ValidationResponse(BaseModel):
     overall_status: Literal["PASS", "FAIL", "REVIEW"]
     results: list[ValidationResult]
+
+
+# -----------------------------
+# Structured LLM
+# -----------------------------
+
+structured_llm = llm.with_structured_output(
+    ValidationResponse
+)
 
 
 # -----------------------------
@@ -101,26 +118,31 @@ def validate_image(image_path: str):
 
     height, width = image.shape[:2]
 
+    print(f"Image dimensions: {width} x {height}")
+
+    # -----------------------------
     # Convert image to base64
+    # -----------------------------
+
     with open(image_path, "rb") as f:
         image_base64 = base64.b64encode(
             f.read()
         ).decode("utf-8")
 
-    response = client.responses.parse(
+    # -----------------------------
+    # Create LangChain messages
+    # -----------------------------
 
-        model=MODEL,
+    messages = [
+        SystemMessage(
+            content=SYSTEM_PROMPT
+        ),
 
-        instructions=SYSTEM_PROMPT,
-
-        input=[
-            {
-                "role": "user",
-                "content": [
-
-                    {
-                        "type": "input_text",
-                        "text": f"""
+        HumanMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": f"""
 Validate this package image.
 
 Original image dimensions:
@@ -131,26 +153,27 @@ Height: {height}
 All bounding boxes must use these exact
 original image coordinates.
 """
-                    },
+                },
+                {
+                    "type": "image_url",
+                    "image_url": (
+                        f"data:image/jpeg;base64,"
+                        f"{image_base64}"
+                    )
+                }
+            ]
+        )
+    ]
 
-                    {
-                        "type": "input_image",
-                        "image_url": (
-                            f"data:image/jpeg;base64,"
-                            f"{image_base64}"
-                        )
-                    }
+    # -----------------------------
+    # Call Gemini through LangChain
+    # -----------------------------
 
-                ]
-            }
-        ],
+    response = structured_llm.invoke(messages)
 
-        text_format=ValidationResponse
-    )
-
-    if response.output_parsed is None:
+    if response is None:
         raise RuntimeError(
-            "LLM returned no structured validation result."
+            "Gemini returned no validation result."
         )
 
-    return response.output_parsed
+    return response

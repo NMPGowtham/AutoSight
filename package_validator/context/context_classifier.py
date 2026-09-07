@@ -2,17 +2,38 @@ import json
 import os
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from context.context_schema import PackageContext
 
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-MODEL = os.getenv("CONTEXT_MODEL", "gpt-4o")
+# -----------------------------
+# Gemini model
+# -----------------------------
 
+llm = ChatGoogleGenerativeAI(
+    model="gemini-3.6-flash",
+    temperature=0,
+    google_api_key=os.getenv("GEMINI_API_KEY")
+)
+
+
+# -----------------------------
+# Structured output
+# -----------------------------
+
+structured_llm = llm.with_structured_output(
+    PackageContext
+)
+
+
+# -----------------------------
+# LLM instructions
+# -----------------------------
 
 SYSTEM_PROMPT = """
 You are the Context Classification component of a packaged-product
@@ -39,6 +60,7 @@ If the supplied evidence is insufficient, return null for the value
 and explain why in the evidence field.
 
 Important:
+
 - Do not infer imported status merely because a brand is foreign.
 - Do not infer industrial use merely because a product is large.
 - Use explicit package evidence whenever possible.
@@ -54,26 +76,43 @@ Return only data matching the supplied schema.
 """
 
 
-def classify_context(ocr_data: dict, yolo_data: dict | None = None) -> PackageContext:
+# -----------------------------
+# Context classification
+# -----------------------------
+
+def classify_context(
+    ocr_data: dict,
+    yolo_data: dict | None = None
+) -> PackageContext:
 
     evidence = {
         "ocr": ocr_data,
         "yolo": yolo_data or {}
     }
 
-    response = client.responses.parse(
-        model=MODEL,
-        instructions=SYSTEM_PROMPT,
-        input=[
-            {
-                "role": "user",
-                "content": json.dumps(evidence, indent=2)
-            }
-        ],
-        text_format=PackageContext,
-    )
+    messages = [
+        SystemMessage(
+            content=SYSTEM_PROMPT
+        ),
 
-    if response.output_parsed is None:
-        raise RuntimeError("Context classifier returned no structured output.")
+        HumanMessage(
+            content=json.dumps(
+                evidence,
+                indent=2,
+                ensure_ascii=False
+            )
+        )
+    ]
 
-    return response.output_parsed
+    # -----------------------------
+    # Call Gemini
+    # -----------------------------
+
+    response = structured_llm.invoke(messages)
+
+    if response is None:
+        raise RuntimeError(
+            "Gemini returned no context classification."
+        )
+
+    return response
