@@ -24,6 +24,22 @@ class ValidationResult(Base):
         index=True
     )
 
+    reviewed_by = mapped_column(
+    UUID(as_uuid=True),
+    ForeignKey("users.user_id"),
+    nullable=True,
+)
+
+    reviewed_at = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    review_comment = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     rule_id: Mapped[str] = mapped_column(
         String(50),
         ForeignKey("rules.rule_id", ondelete="SET NULL"),

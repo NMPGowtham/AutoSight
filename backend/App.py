@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from db.base import Base
 from db.session import engine
@@ -7,12 +8,19 @@ from db.session import engine
 from api.v1.auth import router as auth_router
 from api.v1.images import router as image_router
 from api.v1.validation import router as validation_router
+from api.v1.review import router as review_router
+from api.v1.reports import router as reports_router
 
 app = FastAPI(
     title="Legal Metrology Compliance API",
     version="1.0.0"
 )
 
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads",
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +28,8 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth_router)
 app.include_router(image_router)
 app.include_router(validation_router)
+app.include_router(review_router)
+app.include_router(reports_router)
 
 @app.get("/")
 def root():
