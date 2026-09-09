@@ -11,7 +11,10 @@ import {
   X,
 } from "lucide-react";
 
-import { analyzeInspection } from "../services/inspectionService";
+import {
+  createValidation,
+  uploadValidationImage,
+} from "../services/inspectionService";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -43,7 +46,6 @@ function NewInspection() {
    * .env:
    * VITE_USE_MOCK_API=true
    */
-  const useMockApi = import.meta.env.VITE_USE_MOCK_API !== "false";
 
   /*
    * Clean up object URL.
@@ -143,52 +145,7 @@ function NewInspection() {
     }
   };
 
-  /*
-   * Convert image to data URL.
-   *
-   * Used only for frontend/demo flow.
-   * In production the backend will store the uploaded image.
-   */
-  const fileToDataUrl = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        resolve(reader.result);
-      };
-
-      reader.onerror = () => {
-        reject(new Error("Unable to read image."));
-      };
-
-      reader.readAsDataURL(file);
-    });
-  };
-
-  /*
-   * Read actual image dimensions.
-   */
-  const getImageDimensions = (dataUrl) => {
-    return new Promise((resolve) => {
-      const image = new Image();
-
-      image.onload = () => {
-        resolve({
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        });
-      };
-
-      image.onerror = () => {
-        resolve({
-          width: 1200,
-          height: 1500,
-        });
-      };
-
-      image.src = dataUrl;
-    });
-  };
+  
 
   /*
    * Start inspection.
@@ -200,155 +157,70 @@ function NewInspection() {
    *   Send image to Python backend.
    */
   const handleAnalyze = async () => {
-    if (!selectedFile) {
-      setError("Please upload a package image before continuing.");
-      return;
+  if (!selectedFile) {
+    setError("Please upload a package image before continuing.");
+    return;
+  }
+
+  // if (!category) {
+  //   setError("Please select a product category.");
+  //   return;
+  // }
+
+  setError("");
+  setIsSubmitting(true);
+
+  try {
+    // 1. Create validation
+    const validation = await createValidation();
+
+    const validationId = validation.validation_id;
+
+    if (!validationId) {
+      throw new Error("Backend did not return a validation ID.");
     }
 
-    if (!category) {
-      setError("Please select a product category.");
-      return;
-    }
+    // 2. Upload package image
+    await uploadValidationImage(
+      validationId,
+      selectedFile,
+    );
 
-    setError("");
-    setIsSubmitting(true);
+    // 3. Keep frontend-selected information
+    // temporarily available to the processing/result screens.
+    const inspectionSession = {
+      validation_id: validationId,
+      is_imported: isImported,
+      file_name: selectedFile.name,
+      file_size: selectedFile.size,
+      created_at: new Date().toISOString(),
+      source: "backend",
+    };
 
-    try {
-      /*
-       * Temporary ID for frontend demo.
-       *
-       * Later the backend will generate
-       * the actual inspection ID.
-       */
-      const inspectionId = `LM-${Date.now().toString().slice(-6)}`;
+    sessionStorage.setItem(
+      "current_inspection",
+      JSON.stringify(inspectionSession),
+    );
 
-      /*
-       * =====================================================
-       * MOCK MODE
-       * =====================================================
-       *
-       * Keep this active while Python backend is unavailable.
-       */
-      if (useMockApi) {
-        const imageData = await fileToDataUrl(selectedFile);
+    // 4. Move to processing screen
+    navigate(
+      `/inspection/${validationId}/processing`,
+    );
+  } catch (analysisError) {
+    console.error(
+      "Inspection creation failed:",
+      analysisError,
+    );
 
-        const dimensions = await getImageDimensions(imageData);
+    const message =
+      analysisError?.response?.data?.detail ||
+      analysisError?.message ||
+      "Unable to start the inspection. Please try again.";
 
-        const inspectionSession = {
-          inspection_id: inspectionId,
-
-          image_url: imageData,
-
-          image_width: dimensions.width,
-
-          image_height: dimensions.height,
-
-          file_name: selectedFile.name,
-
-          file_size: selectedFile.size,
-
-          category,
-
-          is_imported: isImported,
-
-          created_at: new Date().toISOString(),
-
-          /*
-           * Useful later for identifying
-           * whether this was frontend demo
-           * or backend analysis.
-           */
-          source: "frontend-demo",
-        };
-
-        sessionStorage.setItem(
-          "current_inspection",
-          JSON.stringify(inspectionSession),
-        );
-
-        navigate(`/inspection/${inspectionId}/processing`);
-
-        return;
-      }
-
-      /*
-       * =====================================================
-       * REAL BACKEND MODE
-       * =====================================================
-       *
-       * This code becomes active automatically
-       * when:
-       *
-       * VITE_USE_MOCK_API=false
-       *
-       * and the Python API is available.
-       */
-      const result = await analyzeInspection(
-        selectedFile,
-        category,
-        isImported,
-      );
-
-      /*
-       * Backend should return an inspection ID.
-       *
-       * Example:
-       * {
-       *   inspection_id: "LM-001249",
-       *   status: "PROCESSING"
-       * }
-       */
-      const backendInspectionId =
-        result?.inspection_id || result?.id || inspectionId;
-
-      /*
-       * Store useful upload information
-       * for the processing/result screens.
-       */
-      const imageData = await fileToDataUrl(selectedFile);
-
-      const dimensions = await getImageDimensions(imageData);
-
-      const inspectionSession = {
-        inspection_id: backendInspectionId,
-
-        image_url: imageData,
-
-        image_width: dimensions.width,
-
-        image_height: dimensions.height,
-
-        file_name: selectedFile.name,
-
-        file_size: selectedFile.size,
-
-        category,
-
-        is_imported: isImported,
-
-        created_at: new Date().toISOString(),
-
-        source: "backend",
-      };
-
-      sessionStorage.setItem(
-        "current_inspection",
-        JSON.stringify(inspectionSession),
-      );
-
-      navigate(`/inspection/${backendInspectionId}/processing`);
-    } catch (analysisError) {
-      console.error("Inspection analysis failed:", analysisError);
-
-      const message =
-        analysisError?.response?.data?.detail ||
-        analysisError?.message ||
-        "Unable to start the inspection. Please try again.";
-
-      setError(message);
-      setIsSubmitting(false);
-    }
-  };
+    setError(message);
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="mx-auto w-full max-w-5xl">

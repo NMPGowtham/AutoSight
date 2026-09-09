@@ -1,95 +1,102 @@
 import api from "./api";
 
-/*
- * --------------------------------------------------------
- * ANALYZE INSPECTION
- * --------------------------------------------------------
- *
- * Sends the uploaded package image to Python.
- *
- * Expected backend endpoint:
- *
- * POST /analyze
- *
- * Form data:
- *   image
- *   category
- *   is_imported
- */
-export const analyzeInspection = async (image, category, isImported) => {
-  if (!image) {
-    throw new Error("Inspection image is required.");
+export const createValidation = async () => {
+  const response = await api.post("/api/validation/", {});
+  return response.data;
+};
+
+export const getValidationImages = async (validationId) => {
+  if (!validationId) {
+    throw new Error("Validation ID is required.");
   }
+
+  const response = await api.get(
+    `/api/validation/${validationId}/images`,
+  );
+
+  return response.data;
+};
+
+export const uploadValidationImage = async (validationId, image) => {
+  if (!validationId) throw new Error("Validation ID is required.");
+  if (!image) throw new Error("Inspection image is required.");
 
   const formData = new FormData();
+  formData.append("file", image);
 
-  formData.append("image", image);
-
-  formData.append("category", category || "");
-
-  formData.append("is_imported", String(Boolean(isImported)));
-
-  const response = await api.post("/analyze", formData, {
-    /*
-     * Do NOT manually set Content-Type here.
-     *
-     * Axios/browser will automatically create:
-     *
-     * multipart/form-data; boundary=...
-     */
-  });
-
+  const response = await api.post(
+    `/api/validation/${validationId}/images`,
+    formData,
+  );
   return response.data;
 };
 
-/*
- * --------------------------------------------------------
- * GET SINGLE INSPECTION
- * --------------------------------------------------------
- *
- * Used by:
- * - Processing page
- * - Inspection result
- * - Inspection details
- */
-export const getInspection = async (inspectionId) => {
-  if (!inspectionId) {
-    throw new Error("Inspection ID is required.");
-  }
+export const processValidation = async (validationId) => {
+  if (!validationId) throw new Error("Validation ID is required.");
 
-  const response = await api.get(`/inspections/${inspectionId}`);
-
+  const response = await api.post(
+    `/api/validation/${validationId}/process`,
+    {},
+    { timeout: 10 * 60 * 1000 },
+  );
   return response.data;
 };
 
-/*
- * --------------------------------------------------------
- * GET ALL INSPECTIONS
- * --------------------------------------------------------
- *
- * Used by inspection history.
- */
+export const getInspection = async (validationId) => {
+  const response = await api.get(`/api/validation/${validationId}`);
+  return response.data;
+};
+
 export const getInspections = async () => {
-  const response = await api.get("/inspections");
-
+  const response = await api.get("/api/validation/");
   return response.data;
 };
 
-/*
- * --------------------------------------------------------
- * GET INSPECTION REPORT
- * --------------------------------------------------------
- *
- * Backend should return a PDF.
- */
-export const getInspectionReport = async (inspectionId) => {
-  if (!inspectionId) {
-    throw new Error("Inspection ID is required.");
+export const getProcessedInspectionImage = async (validationId) => {
+  if (!validationId) {
+    throw new Error("Validation ID is required.");
   }
 
-  const response = await api.get(`/inspections/${inspectionId}/report`, {
-    responseType: "blob",
-  });
+  const response = await api.get(
+    `/api/validation/${validationId}/report-data`,
+  );
 
+  return response.data?.processed_images?.[0] || null;
+};
+
+export const getInspectionReportData = async (validationId) => {
+  const response = await api.get(
+    `/api/validation/${validationId}/report-data`,
+  );
+  return response.data;
+};
+
+export const generateInspectionReport = async (validationId) => {
+  const response = await api.post(`/api/validation/${validationId}/report`);
+  return response.data;
+};
+
+export const getInspectionReport = async (validationId) => {
+  const response = await api.get(
+    `/api/validation/${validationId}/report`,
+    { responseType: "blob" },
+  );
+  return response.data;
+};
+
+export const reviewValidationResult = async (
+  validationId,
+  resultId,
+  decision,
+  comment = "",
+) => {
+  const response = await api.post(
+    `/api/validation/${validationId}/review`,
+    {
+      result_id: resultId,
+      decision,
+      comment,
+    },
+  );
   return response.data;
 };

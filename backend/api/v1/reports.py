@@ -144,6 +144,32 @@ def get_report_data(
             "height": image.height,
         })
 
+    processed_images = []
+
+    for image in validation.images or []:
+        original_path = Path(image.file_path)
+
+        processed_path = (
+            original_path.parent
+            / "processed"
+            / original_path.name
+        )
+
+        if processed_path.exists():
+            processed_images.append({
+                "image_id": str(image.image_id),
+                "file_name": image.file_name,
+                "processed_path": str(processed_path).replace("\\", "/"),
+                "processed_url": (
+                    f"/uploads/"
+                    f"{validation_id}/"
+                    f"processed/"
+                    f"{original_path.name}"
+                ),
+                "width": image.width,
+                "height": image.height,
+            })
+
     return {
         "inspection_id": str(validation.validation_id),
 
@@ -208,6 +234,7 @@ def get_report_data(
         },
 
         "images": images,
+        "processed_images": processed_images,
 
         "image_url": (
             images[0]["image_url"]

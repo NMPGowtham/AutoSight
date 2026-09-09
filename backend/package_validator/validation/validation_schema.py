@@ -2,10 +2,19 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+ValidationField = Literal[
+    "manufacturer",
+    "product_name",
+    "net_quantity",
+    "mrp",
+    "manufacture_date",
+    "expiry_date",
+    "fssai_license",
+]
 
 class ValidationResult(BaseModel):
     rule_id: str
-    field: Optional[str] = None
+    field: ValidationField
 
     status: Literal["PASS", "FAIL", "REVIEW"]
 

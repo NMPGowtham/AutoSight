@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { loginUser, getCurrentUser } from "../services/authService";
 
 const AuthContext = createContext(null);
 
@@ -8,54 +9,57 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("access_token");
+    const restoreSession = async () => {
+      const savedToken = localStorage.getItem("access_token");
 
-    const savedUser = localStorage.getItem("user");
+      if (!savedToken) {
+        setLoading(false);
+        return;
+      }
 
-    if (savedToken && savedUser) {
       try {
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+
+        // Get fresh user details from backend
+        const currentUser = await getCurrentUser();
+
+        setUser(currentUser);
+        localStorage.setItem("user", JSON.stringify(currentUser));
       } catch (error) {
         console.error("Failed to restore user session:", error);
 
         localStorage.removeItem("access_token");
         localStorage.removeItem("user");
+
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-
-    setLoading(false);
-  }, []);
-
-  const login = async (username, password) => {
-    // --------------------------------------------------
-    // MOCK LOGIN
-    // This will be replaced with the real API later.
-    // --------------------------------------------------
-
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    if (!username || !password) {
-      throw new Error("Username and password are required.");
-    }
-
-    const mockResponse = {
-      access_token: "mock-access-token-12345",
-      user: {
-        id: "INS-001",
-        name: username,
-        role: username === "admin" ? "ADMIN" : "INSPECTOR",
-      },
     };
 
-    localStorage.setItem("access_token", mockResponse.access_token);
+    restoreSession();
+  }, []);
 
-    localStorage.setItem("user", JSON.stringify(mockResponse.user));
+  const login = async (email, password) => {
+    // Login only gets the token
+    const response = await loginUser(email, password);
 
-    setToken(mockResponse.access_token);
-    setUser(mockResponse.user);
+    const accessToken = response.access_token;
 
-    return mockResponse;
+    localStorage.setItem("access_token", accessToken);
+    setToken(accessToken);
+
+    // Now fetch actual user details
+    const currentUser = await getCurrentUser();
+
+    localStorage.setItem("user", JSON.stringify(currentUser));
+    setUser(currentUser);
+
+    return {
+      ...response,
+      user: currentUser,
+    };
   };
 
   const logout = () => {

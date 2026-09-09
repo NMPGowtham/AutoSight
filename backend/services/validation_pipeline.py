@@ -10,6 +10,7 @@ from models.ocr_result import OCRResult
 from models.detection_result import DetectionResult
 from models.selected_rule import SelectedRule
 from models.validation_result import ValidationResult
+from package_validator.annotation.annotator import annotate_image
 
 from RuleEngine.selector import select_rules
 
@@ -247,10 +248,7 @@ def save_selected_rules(
         )
 
 
-def _find_field_result(
-    validation_results,
-    field
-):
+def _find_field_result(validation_results, field):
     """
     Find the Gemini validation result corresponding
     to a legal rule field.
@@ -259,49 +257,14 @@ def _find_field_result(
     if not field:
         return None
 
-    aliases = {
-        "manufacturer": [
-            "manufacturer",
-            "packer",
-            "importer",
-            "manufacturer/packer/importer",
-        ],
-
-        "product_name": [
-            "product_name",
-            "product name",
-            "name",
-        ],
-
-        "net_quantity": [
-            "net_quantity",
-            "net quantity",
-        ],
-
-        "mrp": [
-            "mrp",
-            "retail sale price",
-            "retail_sale_price",
-        ],
-    }
-
-    wanted = aliases.get(
-        field,
-        [field]
-    )
-
     for result in validation_results:
-
         result_field = (
-            result.field
-            .strip()
-            .lower()
+            result.field.strip().lower()
+            if result.field
+            else ""
         )
 
-        if result_field in {
-            x.lower()
-            for x in wanted
-        }:
+        if result_field == field.strip().lower():
             return result
 
     return None
@@ -493,6 +456,7 @@ def run_validation_pipeline(
 
     all_ocr_text = []
     all_detections = []
+    processed_images = []
 
     image_validation_results = []
 
@@ -556,10 +520,62 @@ def run_validation_pipeline(
         result = validate_image(
             str(image_path)
         )
+        # testing reasoning
+        # print("\n========== GEMINI VALIDATION RESULTS ==========")
+
+        # for item in result.results:
+        #     print(
+        #         "FIELD:",
+        #         repr(item.field),
+        #         "| STATUS:",
+        #         item.status,
+        #         "| REASON:",
+        #         item.reason
+        #     )
+
+        # print("===============================================\n")
 
         image_validation_results.extend(
             result.results
         )
+        # -------------------------------------------------
+        # Generate processed / annotated image
+        # -------------------------------------------------
+
+        processed_dir = image_path.parent / "processed"
+        processed_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        processed_path = processed_dir / image_path.name
+
+        annotation_results = []
+
+        # print(
+        #     f"Processed image generated: {processed_path}"
+        # )
+        for item in result.results:
+            annotation_results.append({
+                "field": item.field,
+                "status": item.status,
+                "reason": item.reason,
+                "bbox": getattr(item, "bbox", None),
+            })
+
+        annotate_image(
+            image_path=str(image_path),
+            validation_result={
+                "results": annotation_results
+            },
+            output_path=str(processed_path),
+        )
+        processed_images.append({
+            "image_id": str(image.image_id),
+            "file_name": image.file_name,
+            "original_path": image.file_path,
+            "processed_path": str(processed_path),
+        })
 
         # Update dimensions if missing
         if image.width is None or image.height is None:
@@ -721,4 +737,5 @@ def run_validation_pipeline(
         ),
 
         "results": results,
+        "processed_images": processed_images,
     }
