@@ -1,6 +1,6 @@
 # Legal Metrology Compliance System
 
-An AI-assisted compliance validation system for checking packaged commodities against the requirements of the **Legal Metrology (Packaged Commodities) Rules, 2011*.
+An AI-assisted compliance validation system for checking packaged commodities against the requirements of the **Legal Metrology (Packaged Commodities) Rules, 2011**.
 
 The system allows users to upload package images, process them through a backend validation pipeline, evaluate applicable compliance rules, review validation results, and generate inspection reports.
 
